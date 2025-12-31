@@ -235,7 +235,7 @@ class MultiUserPTTTranscriber:
         if participant.identity in self._handlers:
             return  # Already have a handler
 
-        logger.info(f"Audio track subscribed for {participant.identity}")
+        logger.info(f"Audio track subscribed for {participant.identity} (muted: {publication.muted})")
 
         handler = ParticipantPTTHandler(
             participant=participant,
@@ -245,11 +245,8 @@ class MultiUserPTTTranscriber:
         )
         self._handlers[participant.identity] = handler
 
-        # Check initial mute state - if track is already unmuted, start PTT
-        if not publication.muted:
-            task = asyncio.create_task(handler.on_track_unmuted())
-            self._tasks.add(task)
-            task.add_done_callback(self._tasks.discard)
+        # Don't auto-start PTT on subscription - wait for explicit track_unmuted event
+        # The track may briefly report as unmuted before the real mute state is known
 
     def _on_track_muted(
         self,
@@ -260,7 +257,7 @@ class MultiUserPTTTranscriber:
         if publication.kind != rtc.TrackKind.KIND_AUDIO:
             return
 
-        logger.debug(f"Track muted event for {participant.identity}")
+        logger.info(f"Track muted event for {participant.identity}")
         handler = self._handlers.get(participant.identity)
         if handler:
             task = asyncio.create_task(handler.on_track_muted())
@@ -276,7 +273,7 @@ class MultiUserPTTTranscriber:
         if publication.kind != rtc.TrackKind.KIND_AUDIO:
             return
 
-        logger.debug(f"Track unmuted event for {participant.identity}")
+        logger.info(f"Track unmuted event for {participant.identity}")
         handler = self._handlers.get(participant.identity)
         if handler:
             task = asyncio.create_task(handler.on_track_unmuted())
