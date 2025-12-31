@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from dotenv import load_dotenv
+
 
 from livekit import rtc
 from livekit.agents import (
@@ -19,7 +19,7 @@ from livekit.agents import (
 )
 from livekit.plugins import deepgram, silero
 
-load_dotenv()
+
 
 logger = logging.getLogger("transcriber")
 
