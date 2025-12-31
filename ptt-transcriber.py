@@ -225,13 +225,14 @@ class MultiUserPTTTranscriber:
 
     def _on_track_muted(
         self,
-        publication: rtc.RemoteTrackPublication,
         participant: rtc.RemoteParticipant,
+        publication: rtc.RemoteTrackPublication,
     ):
         """Route mute event to participant handler."""
         if publication.kind != rtc.TrackKind.KIND_AUDIO:
             return
 
+        logger.debug(f"Track muted event for {participant.identity}")
         handler = self._handlers.get(participant.identity)
         if handler:
             task = asyncio.create_task(handler.on_track_muted())
@@ -240,13 +241,14 @@ class MultiUserPTTTranscriber:
 
     def _on_track_unmuted(
         self,
-        publication: rtc.RemoteTrackPublication,
         participant: rtc.RemoteParticipant,
+        publication: rtc.RemoteTrackPublication,
     ):
         """Route unmute event to participant handler."""
         if publication.kind != rtc.TrackKind.KIND_AUDIO:
             return
 
+        logger.debug(f"Track unmuted event for {participant.identity}")
         handler = self._handlers.get(participant.identity)
         if handler:
             task = asyncio.create_task(handler.on_track_unmuted())
