@@ -5,6 +5,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY multi-user-transcriber-vad.py .
+COPY ptt-transcriber.py .
 
-CMD ["python", "multi-user-transcriber-vad.py", "start"]
+CMD ["python", "ptt-transcriber.py", "start"]
