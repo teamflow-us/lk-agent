@@ -32,6 +32,7 @@ class ParticipantPTTHandler:
     ):
         self.participant = participant
         self.identity = participant.identity
+        self.name = participant.name or participant.identity  # Fallback to identity if no name
         self._track = track
         self._stt = stt_instance
         self._room = room
@@ -131,15 +132,16 @@ class ParticipantPTTHandler:
         # Send the complete transcript to the room
         final_transcript = " ".join(final_transcript_parts).strip()
         if final_transcript:
-            logger.info(f"{self.identity} -> {final_transcript}")
+            logger.info(f"{self.name} ({self.identity}) -> {final_transcript}")
             await self._publish_transcription(final_transcript)
 
     async def _publish_transcription(self, text: str):
         """Publish transcription to the room's data channel."""
         try:
-            # Create transcription payload
+            # Create transcription payload with both identity (UUID) and name
             payload = json.dumps({
                 "participant_identity": self.identity,
+                "participant_name": self.name,
                 "text": text,
                 "is_final": True,
             })
