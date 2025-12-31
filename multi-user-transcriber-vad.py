@@ -13,7 +13,6 @@ from livekit.agents import (
     cli,
     llm,
     room_io,
-    stt,
     utils,
 )
 from livekit.plugins import deepgram, silero
@@ -21,21 +20,12 @@ from livekit.plugins import deepgram, silero
 logger = logging.getLogger("transcriber")
 
 
+# This is your original working code - reverted to get transcription working again
 class Transcriber(Agent):
-    """Transcriber agent using VAD-gated STT to reduce API costs."""
-
     def __init__(self, *, participant_identity: str):
-        # Use StreamAdapter to wrap non-streaming STT with VAD
-        # This only sends audio to Deepgram when speech is detected
-        vad = silero.VAD.load()
-        stt_instance = deepgram.STT(model="nova-2")
-
         super().__init__(
             instructions="not-needed",
-            stt=stt.StreamAdapter(
-                stt=stt_instance,
-                vad=vad,
-            ),
+            stt=deepgram.STT(),
         )
         self.participant_identity = participant_identity
 
@@ -77,7 +67,7 @@ class MultiUserTranscriber:
             try:
                 self._sessions[participant.identity] = task.result()
             except Exception as e:
-                logger.error(f"Failed to start session for {participant.identity}: {e}")
+                logger.error(f"Failed to start session: {e}")
             finally:
                 self._tasks.discard(task)
 
@@ -97,7 +87,9 @@ class MultiUserTranscriber:
         if participant.identity in self._sessions:
             return self._sessions[participant.identity]
 
-        session = AgentSession()
+        session = AgentSession(
+            vad=self.ctx.proc.userdata["vad"],
+        )
         await session.start(
             agent=Transcriber(participant_identity=participant.identity),
             room=self.ctx.room,
@@ -132,8 +124,7 @@ async def entrypoint(ctx: JobContext):
 
 
 def prewarm(proc: JobProcess):
-    # Pre-load models for faster startup
-    silero.VAD.load()
+    proc.userdata["vad"] = silero.VAD.load()
 
 
 server.setup_fnc = prewarm
