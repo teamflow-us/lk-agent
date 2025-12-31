@@ -102,6 +102,13 @@ class ParticipantPTTHandler:
                 except asyncio.CancelledError:
                     pass
 
+            # Close the audio stream to free resources
+            if self._audio_stream:
+                try:
+                    await self._audio_stream.aclose()
+                except Exception as e:
+                    logger.warning(f"Error closing audio stream for {self.identity}: {e}")
+
             await self._cleanup()
 
     async def _audio_loop(self):
@@ -128,6 +135,13 @@ class ParticipantPTTHandler:
                     pass
         except Exception as e:
             logger.error(f"STT consumption error for {self.identity}: {e}")
+        finally:
+            # Explicitly close the STT stream to free resources
+            if self._stream:
+                try:
+                    await self._stream.aclose()
+                except Exception:
+                    pass
 
         # Send the complete transcript to the room
         final_transcript = " ".join(final_transcript_parts).strip()
@@ -174,17 +188,24 @@ class ParticipantPTTHandler:
             if self._stt_task:
                 self._stt_task.cancel()
 
+            # Wait for tasks to complete
+            tasks = [t for t in [self._audio_task, self._stt_task] if t]
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Close audio stream
+            if self._audio_stream:
+                try:
+                    await self._audio_stream.aclose()
+                except Exception:
+                    pass
+
             # Close STT stream
             if self._stream:
                 try:
                     await self._stream.aclose()
                 except Exception:
                     pass
-
-            # Wait for tasks to complete
-            tasks = [t for t in [self._audio_task, self._stt_task] if t]
-            if tasks:
-                await asyncio.gather(*tasks, return_exceptions=True)
 
             await self._cleanup()
 
