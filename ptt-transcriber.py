@@ -1,6 +1,8 @@
 import asyncio
 import logging
 
+import json
+
 from livekit import rtc
 from livekit.agents import (
     AgentServer,
@@ -12,6 +14,8 @@ from livekit.agents import (
 )
 from livekit.plugins import deepgram
 
+# Standard LiveKit transcription topic
+TOPIC_TRANSCRIPTION = "lk.transcription"
 
 logger = logging.getLogger("ptt-transcriber")
 
@@ -24,11 +28,13 @@ class ParticipantPTTHandler:
         participant: rtc.RemoteParticipant,
         track: rtc.RemoteAudioTrack,
         stt_instance: deepgram.STT,
+        room: rtc.Room,
     ):
         self.participant = participant
         self.identity = participant.identity
         self._track = track
         self._stt = stt_instance
+        self._room = room
 
         self._ptt_active = False
         self._stream: stt.SpeechStream | None = None
@@ -109,7 +115,7 @@ class ParticipantPTTHandler:
             logger.error(f"Audio loop error for {self.identity}: {e}")
 
     async def _consume_stt_events(self):
-        """Consume STT events and log transcriptions."""
+        """Consume STT events and send transcriptions to the room."""
         final_transcript_parts = []
         try:
             async for event in self._stream:
@@ -122,10 +128,31 @@ class ParticipantPTTHandler:
         except Exception as e:
             logger.error(f"STT consumption error for {self.identity}: {e}")
 
-        # Log the complete transcript
+        # Send the complete transcript to the room
         final_transcript = " ".join(final_transcript_parts).strip()
         if final_transcript:
             logger.info(f"{self.identity} -> {final_transcript}")
+            await self._publish_transcription(final_transcript)
+
+    async def _publish_transcription(self, text: str):
+        """Publish transcription to the room's data channel."""
+        try:
+            # Create transcription payload
+            payload = json.dumps({
+                "participant_identity": self.identity,
+                "text": text,
+                "is_final": True,
+            })
+
+            # Publish to the room
+            await self._room.local_participant.publish_data(
+                payload=payload,
+                topic=TOPIC_TRANSCRIPTION,
+                reliable=True,
+            )
+            logger.debug(f"Published transcription for {self.identity}")
+        except Exception as e:
+            logger.error(f"Failed to publish transcription for {self.identity}: {e}")
 
     async def _cleanup(self):
         """Clean up resources."""
@@ -214,6 +241,7 @@ class MultiUserPTTTranscriber:
             participant=participant,
             track=track,
             stt_instance=self._stt,
+            room=self.ctx.room,
         )
         self._handlers[participant.identity] = handler
 
