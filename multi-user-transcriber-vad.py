@@ -9,8 +9,6 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     cli,
-    stt,
-    transcription,
     utils,
 )
 from livekit.plugins import deepgram, silero
