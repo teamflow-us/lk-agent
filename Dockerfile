@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app
 
 # Default to running the conversational agent
-CMD ["python", "multi-user-conversational-agent.py"]
+CMD ["python", "multi-user-conversational-agent.py", "start"]
