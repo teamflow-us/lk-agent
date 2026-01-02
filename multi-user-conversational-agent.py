@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import os
+import time
 
 
 from livekit import rtc
@@ -25,20 +27,51 @@ logger = logging.getLogger("conversational-agent")
 # It creates agent sessions for each participant and responds with text-to-speech.
 class ConversationalAgent(Agent):
     def __init__(self, *, participant_identity: str):
+        # Load configuration from environment variables with defaults
+        tts_voice = os.getenv("AGENT_TTS_VOICE", "nova")
+        tts_model = os.getenv("AGENT_TTS_MODEL", "tts-1")
+        tts_speed = float(os.getenv("AGENT_TTS_SPEED", "1.0"))
+        llm_model = os.getenv("AGENT_LLM_MODEL", "gpt-3.5-turbo")
+        instructions = os.getenv(
+            "AGENT_INSTRUCTIONS", 
+            """You are a helpful StageLink assistant. 
+            - Be concise and professional
+            - Focus on audio/video collaboration topics
+            - Keep responses under 2 sentences"""
+        )
+        
         super().__init__(
-            instructions="You are a helpful assistant. Respond concisely and naturally to the user's questions.",
-            llm=openai.LLM(),
-            tts=openai.TTS(),
+            instructions=instructions,
+            llm=openai.LLM(model=llm_model),
+            tts=openai.TTS(
+                voice=tts_voice,
+                model=tts_model,
+                speed=tts_speed
+            ),
             stt=deepgram.STT(),
         )
         self.participant_identity = participant_identity
+        # Add custom context per participant
+        self.custom_context = {
+            "participant_id": participant_identity,
+            "session_start": time.time(),
+            "conversation_history": []
+        }
 
     async def on_user_turn_completed(self, chat_ctx: llm.ChatContext, new_message: llm.ChatMessage):
         user_transcript = new_message.text_content
+        
+        # Add custom context to chat context for personalized responses
+        chat_ctx.messages.append(
+            llm.ChatMessage(
+                role="system",
+                text=f"Current participant: {self.participant_identity}. Session duration: {time.time() - self.custom_context['session_start']:.0f} seconds."
+            )
+        )
+        
         logger.info(f"{self.participant_identity} -> {user_transcript}")
         
-        # The agent will automatically respond using the LLM and TTS
-        # No need to manually handle the response as the Agent framework handles it
+        # The agent will automatically respond using the LLM and TTS with custom context
 
 
 class MultiUserConversationalAgent:
