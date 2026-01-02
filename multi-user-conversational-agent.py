@@ -62,9 +62,9 @@ class ConversationalAgent(Agent):
         user_transcript = new_message.text_content
         
         # Add custom context to chat context for personalized responses
-        chat_ctx.append(
-            text=f"Current participant: {self.participant_identity}. Session duration: {time.time() - self.custom_context['session_start']:.0f} seconds.",
-            role="system"
+        chat_ctx.add_message(
+            role="system",
+            content=f"Current participant: {self.participant_identity}. Session duration: {time.time() - self.custom_context['session_start']:.0f} seconds."
         )
         
         logger.info(f"{self.participant_identity} -> {user_transcript}")
